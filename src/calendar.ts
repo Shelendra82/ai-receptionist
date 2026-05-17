@@ -38,24 +38,29 @@ export async function createAppointment(
 ): Promise<string> {
   try {
     if (!calendar || !CALENDAR_ID) {
-      return `Simulated booking for ${patientName} on ${date} at ${time}. (Google Calendar not configured)`;
+      return `Simulated booking for \${patientName} on \${date} at \${time}. (Google Calendar not configured)`;
     }
 
-    // Combine date and time into a single Date object
-    const startDateTime = new Date(`${date}T${time}:00`);
-    // Assuming 1-hour appointments
+    // Combine date and time into a single Date object safely
+    const startDateTime = new Date(`\${date}T\${time}:00`);
+    
+    // Check if the date is invalid (e.g. Gemini passed "19may" instead of "2024-05-19")
+    if (isNaN(startDateTime.getTime())) {
+       return `ERROR: Invalid date or time format received. Date must be YYYY-MM-DD and Time must be HH:MM (24-hour). You passed: Date: \${date}, Time: \${time}. Please ask the user to clarify or re-format and try the tool again.`;
+    }
+
     const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000);
 
     const event = {
-      summary: `Appointment: ${patientName}`,
-      description: `Reason: ${reason}\nPhone: ${phoneNumber}`,
+      summary: `Appointment: \${patientName}`,
+      description: `Reason: \${reason}\nPhone: \${phoneNumber}`,
       start: {
         dateTime: startDateTime.toISOString(),
-        timeZone: 'America/New_York', // Change this to the clinic's timezone
+        timeZone: 'Asia/Kolkata', // Set to Indian Timezone since user is in India
       },
       end: {
         dateTime: endDateTime.toISOString(),
-        timeZone: 'America/New_York',
+        timeZone: 'Asia/Kolkata',
       },
     };
 
@@ -64,10 +69,11 @@ export async function createAppointment(
       requestBody: event,
     });
 
-    return `Appointment successfully booked. Event Link: ${response.data.htmlLink}`;
-  } catch (error) {
-    console.error('Error creating calendar event:', error);
-    throw new Error('Failed to book appointment in Google Calendar.');
+    return `Appointment successfully booked. Event Link: \${response.data.htmlLink}`;
+  } catch (error: any) {
+    console.error('Error creating calendar event:', error?.message);
+    // Return the error to Gemini so it knows booking failed
+    return `ERROR: Failed to book appointment in Google Calendar. Google API says: \${error?.message || "Unknown error"}. Tell the patient that their request is noted and our staff will call them shortly to confirm the exact time.`;
   }
 }
 
