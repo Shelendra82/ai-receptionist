@@ -133,8 +133,8 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
     await dbRun('INSERT INTO messages (patient_id, role, content) VALUES (?, ?, ?)', [patient.id, 'assistant', aiMessage]);
 
     return aiMessage;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error processing message:', error);
-    return "We are currently experiencing technical difficulties. Please try again later.";
+    return `Technical Error Details: \${error?.message || error}. Please send this to the developer.`;
   }
 }
