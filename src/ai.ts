@@ -73,7 +73,7 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
 
     console.log('4. Sending message to Groq...');
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "llama-3.1-70b-versatile",
       messages,
       tools,
       tool_choice: "auto"
@@ -93,7 +93,15 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
       console.log('6. Tool arguments:', toolCall.function.arguments);
 
       if (toolCall.function.name === "bookAppointment") {
-        const args = JSON.parse(toolCall.function.arguments);
+        let args: any;
+        try {
+          args = JSON.parse(toolCall.function.arguments);
+        } catch (parseErr) {
+          console.error('7. Failed to parse tool arguments:', toolCall.function.arguments);
+          aiMessage = "I'm sorry, I had trouble processing your booking. Could you please repeat the date and time?";
+          await dbRun('INSERT INTO messages (patient_id, role, content) VALUES (?, ?, ?)', [patient.id, 'assistant', aiMessage]);
+          return aiMessage;
+        }
         console.log('7. Booking appointment with args:', args);
         const patientName = `Telegram User (${patientIdentifier})`;
 
@@ -124,7 +132,7 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
         });
 
         const finalResponse = await groq.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
+          model: "llama-3.1-70b-versatile",
           messages
         });
         aiMessage = finalResponse.choices[0].message.content || "I've booked your appointment.";
