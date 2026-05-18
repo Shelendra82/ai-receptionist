@@ -22,6 +22,7 @@ You are an elite, world-class medical AI receptionist for "HealthCare Clinic". Y
 - When calling the \`bookAppointment\` tool, the \`date\` parameter MUST be strictly in YYYY-MM-DD format (e.g. 2026-05-19).
 - The \`time\` parameter MUST be strictly in 24-hour HH:MM format (e.g. 12:30 or 14:00).
 - If the tool returns an ERROR, gracefully apologize to the user and say we will call them to manually confirm. Do NOT say "technical difficulties".
+- CRITICAL: If you have already confirmed the booking with the user in the past messages, DO NOT call the \`bookAppointment\` tool again. Assume the system has already executed it.
 `;
 
 const tools = [
@@ -67,8 +68,7 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
 
     const messages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
-      ...formattedHistory,
-      { role: "user", content: messageBody }
+      ...formattedHistory
     ];
 
     console.log('4. Sending message to Groq');
