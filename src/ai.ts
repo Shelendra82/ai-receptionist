@@ -71,7 +71,7 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
       ...formattedHistory
     ];
 
-    console.log('4. Sending message to Groq');
+    console.log('4. Sending message to Groq...');
     const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages,
@@ -82,10 +82,19 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
     const firstMessage = response.choices[0].message;
     let aiMessage = "";
 
+    // --- DETAILED LOGGING ---
+    console.log('5. Groq finish_reason:', response.choices[0].finish_reason);
+    console.log('5. Tool calls received:', JSON.stringify(firstMessage.tool_calls, null, 2));
+    console.log('5. AI text content:', firstMessage.content);
+
     if (firstMessage.tool_calls && firstMessage.tool_calls.length > 0) {
       const toolCall = firstMessage.tool_calls[0];
+      console.log('6. Tool called:', toolCall.function.name);
+      console.log('6. Tool arguments:', toolCall.function.arguments);
+
       if (toolCall.function.name === "bookAppointment") {
         const args = JSON.parse(toolCall.function.arguments);
+        console.log('7. Booking appointment with args:', args);
         const patientName = `Telegram User (${patientIdentifier})`;
 
         const bookingResult = await createAppointment(
@@ -95,6 +104,7 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
           args.time,
           args.reason
         );
+        console.log('8. Calendar booking result:', bookingResult);
 
         await appendToSheet(
           patientName,
@@ -103,6 +113,7 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
           args.time,
           args.reason
         );
+        console.log('9. Sheet updated successfully.');
 
         // Append tool call and result, then request final answer
         messages.push(firstMessage);
@@ -117,9 +128,15 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
           messages
         });
         aiMessage = finalResponse.choices[0].message.content || "I've booked your appointment.";
+        console.log('10. Final AI message:', aiMessage);
+      } else {
+        // Tool name did not match - use AI's text if available
+        console.warn('Unknown tool called:', toolCall.function.name);
+        aiMessage = firstMessage.content || "I'm sorry, I'm having trouble processing that right now.";
       }
     } else {
       aiMessage = firstMessage.content || "I'm sorry, I'm having trouble processing that right now.";
+      console.log('5. No tool call — normal text response.');
     }
 
     await dbRun('INSERT INTO messages (patient_id, role, content) VALUES (?, ?, ?)', [patient.id, 'assistant', aiMessage]);
