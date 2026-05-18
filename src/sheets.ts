@@ -10,13 +10,25 @@ let auth: any;
 let sheets: any;
 
 try {
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  if (process.env.GOOGLE_CREDS_JSON) {
+    // ✅ Railway: Use JSON content directly from environment variable
+    console.log('Sheets: Using GOOGLE_CREDS_JSON (Railway mode)...');
+    const credentials = JSON.parse(process.env.GOOGLE_CREDS_JSON);
+    auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: SCOPES,
+    });
+    sheets = google.sheets({ version: 'v4', auth });
+    console.log('Google Sheets service initialized (via GOOGLE_CREDS_JSON).');
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    // ✅ Local: Use key file path
+    console.log('Sheets: Using GOOGLE_APPLICATION_CREDENTIALS (local mode)...');
     auth = new google.auth.GoogleAuth({
       keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
       scopes: SCOPES,
     });
     sheets = google.sheets({ version: 'v4', auth });
-    console.log('Google Sheets service initialized.');
+    console.log('Google Sheets service initialized (via keyFile).');
   } else {
     console.warn('Google Credentials not found. Sheet update will be simulated.');
   }

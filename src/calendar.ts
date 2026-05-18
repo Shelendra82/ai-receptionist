@@ -3,8 +3,6 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// We expect a service account JSON file path to be defined in the environment,
-// or the credentials can be loaded directly if set in environment variables.
 const SCOPES = ['https://www.googleapis.com/auth/calendar.events'];
 const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID;
 
@@ -12,13 +10,25 @@ let auth: any;
 let calendar: any;
 
 try {
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  if (process.env.GOOGLE_CREDS_JSON) {
+    // ✅ Railway: Use JSON content directly from environment variable
+    console.log('Calendar: Using GOOGLE_CREDS_JSON (Railway mode)...');
+    const credentials = JSON.parse(process.env.GOOGLE_CREDS_JSON);
+    auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: SCOPES,
+    });
+    calendar = google.calendar({ version: 'v3', auth });
+    console.log('Google Calendar service initialized (via GOOGLE_CREDS_JSON).');
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    // ✅ Local: Use key file path
+    console.log('Calendar: Using GOOGLE_APPLICATION_CREDENTIALS (local mode)...');
     auth = new google.auth.GoogleAuth({
       keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
       scopes: SCOPES,
     });
     calendar = google.calendar({ version: 'v3', auth });
-    console.log('Google Calendar service initialized.');
+    console.log('Google Calendar service initialized (via keyFile).');
   } else {
     console.warn('Google Calendar credentials not found. Booking will be simulated.');
   }
