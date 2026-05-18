@@ -51,10 +51,10 @@ export async function createAppointment(
       return `Simulated booking for ${patientName} on ${date} at ${time}. (Google Calendar not configured)`;
     }
 
-    // Combine date and time into a single Date object safely
-    const startDateTime = new Date(`${date}T${time}:00`);
-    
-    // Check if the date is invalid (e.g. AI passed "19may" instead of "2026-05-19")
+    // Combine date and time in IST timezone (+05:30) so Railway UTC server saves correctly
+    const startDateTime = new Date(`${date}T${time}:00+05:30`);
+
+    // Check if the date is invalid
     if (isNaN(startDateTime.getTime())) {
        return `ERROR: Invalid date or time format received. Date must be YYYY-MM-DD and Time must be HH:MM (24-hour). You passed: Date: ${date}, Time: ${time}. Please ask the user to clarify or re-format and try the tool again.`;
     }
@@ -66,7 +66,7 @@ export async function createAppointment(
       description: `Reason: ${reason}\nPhone: ${phoneNumber}`,
       start: {
         dateTime: startDateTime.toISOString(),
-        timeZone: 'Asia/Kolkata', // Set to Indian Timezone since user is in India
+        timeZone: 'Asia/Kolkata',
       },
       end: {
         dateTime: endDateTime.toISOString(),
@@ -82,19 +82,15 @@ export async function createAppointment(
     return `Appointment successfully booked. Event Link: ${response.data.htmlLink}`;
   } catch (error: any) {
     console.error('Error creating calendar event:', error?.message);
-    // Return the error to Gemini so it knows booking failed
     return `ERROR: Failed to book appointment in Google Calendar. Google API says: ${error?.message || "Unknown error"}. Tell the patient that their request is noted and our staff will call them shortly to confirm the exact time.`;
   }
 }
 
 /**
  * Lists available slots or simply checks if a time is in the future.
- * For MVP, we will just simulate checking availability.
  */
 export async function checkAvailability(date: string, time: string): Promise<boolean> {
-  // In a full implementation, you would use calendar.events.list to find conflicts.
-  // For now, we assume all future times are available.
-  const requestedDateTime = new Date(`${date}T${time}:00`);
+  const requestedDateTime = new Date(`${date}T${time}:00+05:30`);
   if (requestedDateTime > new Date()) {
     return true;
   }

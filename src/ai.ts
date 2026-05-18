@@ -16,12 +16,13 @@ CONVERSATION RULES:
 2. Never repeat a question the user has already answered.
 3. If patient wants a soon appointment, suggest two specific times (e.g., tomorrow at 10:00 AM or 11:30 AM).
 4. Keep responses brief - 2 to 3 sentences only.
+5. IMPORTANT: Always display time to the patient in 12-hour AM/PM format (e.g. 2:00 PM, 10:30 AM). Never show 24-hour format like 14:00 to the patient.
 
 BOOKING RULES:
 - Today's date is ${new Date().toISOString().split('T')[0]}.
 - When you have the date, time, and reason confirmed by the patient, call the bookAppointment function.
 - The date parameter must be in YYYY-MM-DD format (example: 2026-05-19).
-- The time parameter must be in HH:MM 24-hour format (example: 14:00).
+- The time parameter must be in HH:MM 24-hour format (example: 14:00). This is only for the function, not for display.
 - If booking fails, apologize and say the staff will call to confirm.
 - Never call bookAppointment twice for the same appointment.
 `;
@@ -47,7 +48,7 @@ const tools = [
 
 export async function processIncomingMessage(patientIdentifier: string, messageBody: string): Promise<string> {
   try {
-    // 1. Get or create patient (Using Telegram ID or unique identifier)
+    // 1. Get or create patient
     let patient = await dbGet('SELECT * FROM patients WHERE phone_number = ?', [patientIdentifier]) as any;
     if (!patient) {
       await dbRun('INSERT INTO patients (phone_number) VALUES (?)', [patientIdentifier]);
@@ -61,7 +62,6 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
     const historyRows = await dbAll('SELECT role, content FROM messages WHERE patient_id = ? ORDER BY created_at DESC LIMIT 10', [patient.id]) as any[];
     console.log('3. Fetched history');
 
-    // Build history for Groq
     const formattedHistory = historyRows.reverse().map((msg: any) => ({
       role: msg.role === 'assistant' ? 'assistant' : 'user',
       content: msg.content
@@ -83,7 +83,6 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
     const firstMessage = response.choices[0].message;
     let aiMessage = "";
 
-    // --- DETAILED LOGGING ---
     console.log('5. Groq finish_reason:', response.choices[0].finish_reason);
     console.log('5. Tool calls received:', JSON.stringify(firstMessage.tool_calls, null, 2));
     console.log('5. AI text content:', firstMessage.content);
@@ -124,7 +123,6 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
         );
         console.log('9. Sheet updated successfully.');
 
-        // Append tool call and result, then request final answer
         messages.push(firstMessage);
         messages.push({
           role: "tool",
@@ -139,7 +137,6 @@ export async function processIncomingMessage(patientIdentifier: string, messageB
         aiMessage = finalResponse.choices[0].message.content || "I've booked your appointment.";
         console.log('10. Final AI message:', aiMessage);
       } else {
-        // Tool name did not match - use AI's text if available
         console.warn('Unknown tool called:', toolCall.function.name);
         aiMessage = firstMessage.content || "I'm sorry, I'm having trouble processing that right now.";
       }
